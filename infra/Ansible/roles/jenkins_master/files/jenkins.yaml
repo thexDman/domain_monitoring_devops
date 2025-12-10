@@ -54,3 +54,43 @@ credentials:
 unclassified:
   location:
     url: "${JENKINS_URL}"
+  job-dsl:
+    scriptSecurityEnabled: false
+    useScriptSecurity: false
+
+jobs:
+  - script: >
+      pipelineJob('domain-monitoring-ci') {
+        description('Domain Monitoring CI/CD - auto-created by JCasC / Job DSL')
+
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/thexDman/domain_monitoring_devops.git')
+                  // if repo is private, you can later bind credentials here
+                }
+                branches('*/main')
+                extensions {
+                  wipeOutWorkspace()
+                }
+              }
+            }
+            scriptPath('Jenkinsfile')
+          }
+        }
+
+        // use your agent label
+        properties {
+          pipelineTriggers {
+            triggers {
+              githubPush()
+            }
+          }
+        }
+
+        logRotator {
+          numToKeep(30)
+        }
+      }

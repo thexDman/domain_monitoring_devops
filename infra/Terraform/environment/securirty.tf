@@ -17,7 +17,7 @@ resource "aws_key_pair" "group2_tf_public_key" {
 resource "local_file" "group2_tf_private_key" {
     content = tls_private_key.group2_generated_keys.private_key_pem
     filename = "${path.root}/keys/${var.ssh_private_key_name}.pem"
-    file_permission = "0400"
+    file_permission = "0644"
 
     # provisioner "local-exec" {
     #     when = create

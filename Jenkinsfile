@@ -1,81 +1,92 @@
 pipeline {
-    agent { label 'Slave' }
+    agent { label 'Slave docker' }
 
+    options {
+        ansiColor('xterm')
+        timestamps()
+    }
+    
     environment {
-        REGISTRY = "symmetramain"
-        IMAGE_NAME = "etcsys"
-        REPO_URL = "https://github.com/MatanItzhaki12/domain_monitoring_devops.git"
-        CONTAINER_NAME = "temp_container_${BUILD_NUMBER}"
+        REGISTRY = "thexDman"
+        IMAGE_NAME = "domain_monitoring_devops"
+        APP_PORT = "8080"
+        CONTAINER_NAME = "DMS-TEMP-${BUILD_NUMBER}"
+        DOCKERHUB = credentials('dockerhub-creds')
+        GITHUB = credentials('github-token')
     }
 
-    options { timestamps() }
-
     stages {
-
-        stage('Checkout Source Code') {
+        stage('Checkout') {
             steps {
-                echo "Cloning repository from GitHub..."
-                git branch: 'main', url: "${REPO_URL}"
+                checkout scm
+                sh '''
+                    echo "---Git INFO---"
+                    echo "Branch: $GIT_BRANCH"
+                    echo "Commit: $GIT_COMMIT"
+                ''' 
             }
         }
 
-        stage('Get Commit ID') {
+        stage('Show node info') {
+            steps {
+                sh '''
+                    echo "HOSTNAME: $(hostname)"
+                    echo "USER: $(whoami)"
+                    echo "WORKSPACE: $WORKSPACE"
+                ''' 
+            }
+        }
+
+        stage('Compute Image Tag') {
             steps {
                 script {
-                    def commit = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
-                    echo "Commit ID: ${commit}"
+                    env.SHORT_COMMIT = sh(
+                        script: 'git rev-parse --short=8 HEAD',
+                        returnStdout: true
+                    ).trim()
 
-                    def b = BUILD_NUMBER.toInteger()
-                    def short = commit.take(8)
-
-                    env.TAG = short
-                    env.VERSION_TAG = "build-${b}-${short}"
-
-                    echo "Build version: ${env.VERSION_TAG}"
+                    env.IMAGE_TAG = "build-${BUILD_NUMBER}-${env.SHORT_COMMIT}"
+                    echo "Docker image tag: ${env.IMAGE_TAG}"
                 }
-            }
-        }
-
-        stage('Prepare Test Environment') {
-            steps {
-                echo "Cleaning UsersData before tests..."
-                sh """
-                    mkdir -p UsersData
-                    echo "[]" > UsersData/users.json
-                    find UsersData -name "*_domains.json" -delete || true
-                """
             }
         }
 
         stage('Build Docker Image') {
             steps {
-                echo "Building Docker image: ${REGISTRY}/${IMAGE_NAME}:${env.TAG}"
                 sh """
-                    docker build -t ${REGISTRY}/${IMAGE_NAME}:${env.TAG} .
+                    echo "Building Docker image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                    docker build -t ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} .
                 """
             }
         }
 
         stage('Run Container for Tests') {
             steps {
-                echo "Starting temporary container..."
                 sh """
+                    echo "Starting temporary container: ${CONTAINER_NAME}"
+
                     docker rm -f ${CONTAINER_NAME} || true
-                    docker run -d --name ${CONTAINER_NAME} -p 8080:8080 ${REGISTRY}/${IMAGE_NAME}:${env.TAG}
+
+                    docker run -d --name ${CONTAINER_NAME} \
+                        -p ${APP_PORT}:8080 \
+                        ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+
+                    echo "Waiting for app to start..."
+                    sleep 10
+
+                    echo "Health check (optional):"
+                    curl -sS http://localhost:${APP_PORT} || echo "App not responding yet, tests may fail."
                 """
-
-                echo "Waiting for Flask backend to start..."
-                sh "sleep 5"
             }
-        }
+        }        
 
-        stage('Execute Tests') {
+        stage('Execute Tests inside Container') {
             parallel {
 
                 stage('API Tests') {
                     steps {
-                        echo "Running backend API tests..."
                         sh """
+                            echo "Running API tests inside container..."
                             docker exec ${CONTAINER_NAME} pytest tests/api_tests --maxfail=1 --disable-warnings -q
                         """
                     }
@@ -83,8 +94,8 @@ pipeline {
 
                 stage('UI Selenium Tests') {
                     steps {
-                        echo "Running UI Selenium tests..."
                         sh """
+                            echo "Running Selenium/UI tests inside container..."
                             docker exec ${CONTAINER_NAME} pytest tests/selenium_tests --maxfail=1 --disable-warnings -q
                         """
                     }
@@ -93,72 +104,41 @@ pipeline {
             }
         }
 
-        stage('Promote Version & Push') {
+        stage('Push Docker Image') {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
-                script {
+                sh """
+                    echo "Logging into Docker Hub as ${DOCKERHUB_USR}"
+                    echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
 
-                    // detect latest version
-                    def currentVersion = sh(
-                        script: "git tag --sort=-v:refname | grep -Eo 'v[0-9]+\\.[0-9]+\\.[0-9]+' | head -n1 || echo 'v0.0.0'",
-                        returnStdout: true
-                    ).trim()
+                    echo "Tagging image for Docker Hub..."
+                    docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:${IMAGE_TAG}
+                    docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
 
-                    echo "Current version: ${currentVersion}"
+                    echo "Pushing images..."
+                    docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
 
-                    def (major, minor, patch) = currentVersion.replace('v', '').tokenize('.').collect { it.toInteger() }
-                    def newVersion = "v${major}.${minor}.${patch + 1}"
-
-                    echo "New version: ${newVersion}"
-
-                    withCredentials([usernamePassword(
-                        credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
-                        sh """
-                            echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
-                            docker tag ${REGISTRY}/${IMAGE_NAME}:${env.TAG} \$DOCKER_USER/${IMAGE_NAME}:${newVersion}
-                            docker tag ${REGISTRY}/${IMAGE_NAME}:${env.TAG} \$DOCKER_USER/${IMAGE_NAME}:latest
-                            docker push \$DOCKER_USER/${IMAGE_NAME}:${newVersion}
-                            docker push \$DOCKER_USER/${IMAGE_NAME}:latest
-                            docker logout
-                        """
-                    }
-
-                    withCredentials([usernamePassword(
-                        credentialsId: 'github-token',
-                        usernameVariable: 'GIT_USER',
-                        passwordVariable: 'GIT_TOKEN'
-                    )]) {
-                        sh """
-                            git config --global user.email "jenkins@ci.local"
-                            git config --global user.name "Jenkins CI"
-                            git tag -a ${newVersion} -m 'Release ${newVersion}'
-                            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/cerform/domain_monitoring_devops.git ${newVersion}
-                        """
-                    }
-                }
+                    docker logout
+                """
             }
         }
-
-    } // stages
-
+    }
     post {
-
         failure {
-            echo "Tests FAILED — printing logs..."
-            sh "docker logs ${CONTAINER_NAME} || true"
+            echo "Tests FAILED — dumping container logs..."
+            sh """
+                docker logs ${CONTAINER_NAME} || true
+            """
         }
 
         always {
             echo "Cleaning temp containers & images..."
             sh """
                 docker rm -f ${CONTAINER_NAME} || true
-                docker rmi ${REGISTRY}/${IMAGE_NAME}:${env.TAG} || true
-                docker system prune -af --volumes || true
+                # optional, if you don't want aggressive prune, comment this out:
+                # docker system prune -af --volumes || true
             """
-            deleteDir()
-        }
+        }    
     }
 }

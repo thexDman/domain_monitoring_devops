@@ -27,7 +27,7 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "terraform_state" {
-  bucket        = "group2-terraform-bucket-2025-774411"
+  bucket        = "group2-terraform-bucket-2025-77441122"
   force_destroy = true
 }
 
