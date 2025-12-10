@@ -1,2 +1,10 @@
-ansible_user: ubuntu
-ansible_ssh_private_key_file: "~/.ssh/keys/group2_private_key.pem"
+ADMIN_PASSWORD: "{{ vault_admin_password }}"
+DOCKERHUB_USER: "{{ vault_dockerhub_user }}"
+DOCKERHUB_PASS: "{{ vault_dockerhub_pass }}"
+GITHUB_USER: "{{ vault_github_user }}"
+GITHUB_TOKEN: "{{ vault_github_token }}"
+
+
+# Jenkins non-secret config
+jenkins_home: /var/jenkins_home
+jenkins_container_name: jenkins-master

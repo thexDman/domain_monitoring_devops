@@ -1,0 +1,47 @@
+---
+
+- name: Install Docker engine and dependencies
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - python3-pip
+      - python3-docker
+    state: present
+    update_cache: yes
+
+- name: Ensure Docker service is running and enabled
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Add ubuntu user to docker Group
+  ansible.builtin.user:
+    name: ubuntu
+    groups: docker
+    append: yes
+
+- name: Check Docker version
+  ansible.builtin.command: docker --version
+  register: docker_version
+  changed_when: false
+
+- name: Display Docker version
+  ansible.builtin.debug:
+    msg: "Docker version on master: {{ docker_version.stdout }}"
+
+- name: Create Jenkins_Home and config directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0777"
+  loop:
+    - "{{ jenkins_home }}"
+    - "{{ jenkins_home }}/casc_configs"
+    - "{{ jenkins_home }}/init.groovy.d"
+
+- name: Show Jenkins home path
+  ansible.builtin.debug:
+    msg: "Jenkins Home Path: {{ jenkins_home }}"

@@ -1,18 +1,17 @@
 plugin: amazon.aws.aws_ec2
 
-regions:
+regions: 
   - us-east-2
 
 filters:
   instance-state-name:
     - running
-  "tag:Name": 
+  "tag:Name":
     - "Group2-jenkins-*"
 
 hostnames:
   - tag:Name
   - public_ip_address
-
 
 compose:
   ansible_host: public_ip_address
@@ -20,4 +19,3 @@ compose:
 
 keyed_groups:
   - key: tags.Purpose
-    # prefix: "_"
