@@ -12,3 +12,10 @@
 
   roles:
     - jenkins_master
+
+- name: Configure Jenkins agent node
+  hosts: _agent
+  become: yes
+
+  roles:
+    - jenkins_agent

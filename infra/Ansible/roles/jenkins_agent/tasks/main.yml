@@ -1,0 +1,119 @@
+---
+# roles/jenkins_agent/tasks/main.yml
+
+- name: Update apt cache on agent
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install Java runtime for Jenkins agent
+  ansible.builtin.apt:
+    name:
+      - openjdk-17-jdk
+      - curl
+    state: present
+
+- name: Ensure Jenkins agent workdir exists
+  ansible.builtin.file:
+    path: "{{ jenkins_agent_workdir }}"
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
+
+# --- Find Jenkins master URL dynamically ---
+
+- name: Set Jenkins master URL fact
+  ansible.builtin.set_fact:
+    jenkins_master_url: "http://{{ hostvars[groups['_master'][0]].ansible_host }}:8080"
+
+- name: Wait for Jenkins master to be up
+  ansible.builtin.uri:
+    url: "{{ jenkins_master_url }}/login"
+    status_code: 200
+  register: jenkins_up
+  retries: 30
+  delay: 10
+  until: jenkins_up.status == 200
+
+# --- Download agent.jar from master ---
+
+- name: Download Jenkins agent.jar
+  ansible.builtin.get_url:
+    url: "{{ jenkins_master_url }}/jnlpJars/agent.jar"
+    dest: "{{ jenkins_agent_workdir }}/agent.jar"
+    mode: "0644"
+    owner: ubuntu
+    group: ubuntu
+
+# --- Get crumb and session cookie with correct admin user ---
+
+- name: Get Jenkins crumb
+  ansible.builtin.shell: |
+    curl -s -u "group2:{{ ADMIN_PASSWORD }}" \
+      --cookie-jar /tmp/jenkins_cookies \
+      "{{ jenkins_master_url }}/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,%22:%22,//crumb)"
+  register: crumb_output
+  changed_when: false
+
+- name: Set Jenkins crumb fact
+  ansible.builtin.set_fact:
+    jenkins_crumb: "{{ crumb_output.stdout | trim }}"
+
+# --- Retrieve node secret from master via scriptText ---
+
+- name: Retrieve Jenkins agent secret from master via scriptText
+  ansible.builtin.shell: |
+    curl -s -X POST "{{ jenkins_master_url }}/scriptText" \
+      --cookie /tmp/jenkins_cookies \
+      -H "{{ jenkins_crumb }}" \
+      -u "group2:{{ ADMIN_PASSWORD }}" \
+      --data-urlencode 'script=import jenkins.model.Jenkins; def n = Jenkins.instance.getNode("{{ jenkins_agent_node_name }}"); println(n?.computer?.jnlpMac)'
+  register: node_secret_output
+  changed_when: false
+
+- name: Set Jenkins agent secret fact
+  ansible.builtin.set_fact:
+    jenkins_agent_secret: "{{ node_secret_output.stdout | trim }}"
+
+# sanity check for secret
+- name: Show agent secret length
+  ansible.builtin.debug:
+    msg: "Agent secret length (from scriptText): {{ jenkins_agent_secret | length }}"
+
+
+
+# --- Create systemd service for Jenkins agent ---
+
+- name: Create systemd service for Jenkins agent
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/jenkins-agent.service
+    mode: "0644"
+    content: |
+      [Unit]
+      Description=Jenkins Agent
+      After=network.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      User=ubuntu
+      Group=ubuntu
+      WorkingDirectory={{ jenkins_agent_workdir }}
+      ExecStart=/usr/bin/java -jar {{ jenkins_agent_workdir }}/agent.jar -url {{ jenkins_master_url }}/ -secret {{ jenkins_agent_secret | trim }} -name "{{ jenkins_agent_node_name }}" -webSocket -workDir "{{ jenkins_agent_workdir }}"
+      Restart=always
+      RestartSec=10
+
+      [Install]
+      WantedBy=multi-user.target
+
+
+
+
+
+- name: Reload systemd and start Jenkins agent
+  ansible.builtin.systemd:
+    name: jenkins-agent
+    state: started
+    enabled: yes
+    daemon_reload: yes

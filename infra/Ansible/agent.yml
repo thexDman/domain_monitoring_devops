@@ -1,0 +1,7 @@
+---
+- name: Configure Jenkins agent only
+  hosts: _agent        
+  become: yes
+
+  roles:
+    - jenkins_agent

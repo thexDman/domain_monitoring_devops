@@ -8,3 +8,8 @@ GITHUB_TOKEN: "{{ vault_github_token }}"
 # Jenkins non-secret config
 jenkins_home: /var/jenkins_home
 jenkins_container_name: jenkins-master
+jenkins_admin_user: "group2"
+
+# agent-specific
+jenkins_agent_node_name: "docker-slave-1"
+jenkins_agent_workdir: "/home/jenkins"

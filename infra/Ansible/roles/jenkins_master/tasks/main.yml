@@ -45,3 +45,125 @@
 - name: Show Jenkins home path
   ansible.builtin.debug:
     msg: "Jenkins Home Path: {{ jenkins_home }}"
+
+# --- Copy JCasC + plugins from role files ---
+
+- name: Copy JCasC config (jenkins.yaml) to master
+  ansible.builtin.copy:
+    src: jenkins.yaml
+    dest: "{{ jenkins_home }}/casc_configs/jenkins.yaml"
+    mode: "0644"
+
+- name: Copy Plugins.yaml to master
+  ansible.builtin.copy:
+    src: plugins.yaml
+    dest: "{{ jenkins_home }}/plugins.yaml"
+    mode: "0644"
+
+- name: Generate plugins.txt for Jenkins image
+  ansible.builtin.copy:
+    dest: "{{ jenkins_home }}/plugins.txt"
+    mode: "0644"
+    content: |
+      configuration-as-code
+      configuration-as-code-support
+      job-dsl
+      git
+      git-client
+      github
+      github-branch-source
+      workflow-aggregator
+      pipeline-stage-view
+      pipeline-graph-analysis
+      pipeline-utility-steps
+      docker-workflow
+      docker-commons
+      credentials
+      credentials-binding
+      plain-credentials
+      ssh-credentials
+      cloudbees-folder
+      junit
+      htmlpublisher
+      matrix-auth
+      role-strategy
+      timestamper
+      build-timeout
+      ws-cleanup
+      ansicolor    
+
+- name: Confirm Jenkins config files exist
+  ansible.builtin.debug:
+    msg:
+      - "JCasC: {{ jenkins_home }}/casc_configs/jenkins.yaml"
+      - "plugins.yaml: {{ jenkins_home }}/plugins.yaml"
+      - "plugins.txt: {{ jenkins_home }}/plugins.txt"
+
+- name: Create Dockerfile for Jenkins
+  ansible.builtin.copy:
+    dest: "{{ jenkins_home }}/Dockerfile"
+    mode: "0644"
+    content: |
+      FROM jenkins/jenkins:lts-jdk17
+
+      USER root
+
+      # Disable setup wizard
+      ENV JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
+
+      # Point JCasC to our config
+      ENV CASC_JENKINS_CONFIG=/var/jenkins_home/casc_configs/jenkins.yaml
+
+      # Copy plugins list and JCasC config into the image
+      COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
+      COPY casc_configs/jenkins.yaml /var/jenkins_home/casc_configs/jenkins.yaml
+
+      # Copy any Groovy init scripts (currently dir is empty, but ready for later)
+      COPY init.groovy.d/ /usr/share/jenkins/ref/init.groovy.d/
+
+      # Install plugins
+      RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt
+
+      USER jenkins
+
+      EXPOSE 8080 50000
+
+# --- Build Jenkins Docker image ---
+
+- name: Build Jenkins Docker image
+  community.docker.docker_image:
+    name: group2-jenkins:lts
+    source: build
+    build:
+      path: "{{ jenkins_home }}"
+      nocache: true
+
+
+# --- Compute Jenkins URL from this host's IP ---
+
+- name: Set Jenkins URL fact
+  ansible.builtin.set_fact:
+    jenkins_url: "http://{{ ansible_host }}:8080"
+
+# --- Run Jenkins container ---
+
+- name: Run Jenkins container
+  community.docker.docker_container:
+    name: "{{ jenkins_container_name }}"
+    image: group2-jenkins:lts
+    state: started
+    restart_policy: always
+    privileged: true
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - "{{ jenkins_home }}:/var/jenkins_home"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    env:
+      ADMIN_PASSWORD: "{{ ADMIN_PASSWORD }}"
+      DOCKERHUB_USER: "{{ DOCKERHUB_USER }}"
+      DOCKERHUB_PASS: "{{ DOCKERHUB_PASS }}"
+      GITHUB_USER: "{{ GITHUB_USER }}"
+      GITHUB_TOKEN: "{{ GITHUB_TOKEN }}"
+      JENKINS_URL: "{{ jenkins_url }}"
