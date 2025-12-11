@@ -115,17 +115,14 @@ pipeline {
                     echo "Fetching existing tags from Docker Hub..."
 
                     def tagsJson = sh(
-                        script: """
-                            curl -s "https://hub.docker.com/v2/repositories/${DOCKERHUB_USR}/${IMAGE_NAME}/tags?page_size=100"
-                        """,
+                        script: "curl -s https://hub.docker.com/v2/repositories/${DOCKERHUB_USR}/${IMAGE_NAME}/tags?page_size=100",
                         returnStdout: true
                     )
 
-                    def parsed = new groovy.json.JsonSlurper().parseText(tagsJson)
+                    def parsed = new JsonSlurper().parseText(tagsJson)
 
-                    def semverTags = parsed.results
-                        .collect { it.name }
-                        .findAll { it ==~ /v[0-9]+\\.[0-9]+\\.[0-9]+/ }
+                    def semverTags = parsed.results.collect { it.name }
+                        .findAll { it ==~ /v\d+\.\d+\.\d+/ }
 
                     echo "Found semantic tags: ${semverTags}"
 
@@ -134,17 +131,17 @@ pipeline {
                     if (!semverTags || semverTags.isEmpty()) {
                         NEXT_VERSION = "v1.0.0"
                     } else {
-                        // Sort properly
+
                         semverTags = semverTags.sort { a, b ->
-                            def av = a.replace("v","").split("\\.").collect { it as int }
-                            def bv = b.replace("v","").split("\\.").collect { it as int }
+                            def av = a.replace("v","").split("\\.").collect { it.toInteger() }
+                            def bv = b.replace("v","").split("\\.").collect { it.toInteger() }
                             return av <=> bv
                         }
 
                         def latest = semverTags.last()
                         echo "Latest version on Docker Hub: ${latest}"
 
-                        def parts = latest.replace("v","").split("\\.").collect { it as int }
+                        def parts = latest.replace("v","").split("\\.").collect { it.toInteger() }
                         parts[2] = parts[2] + 1
 
                         NEXT_VERSION = "v${parts[0]}.${parts[1]}.${parts[2]}"
@@ -155,7 +152,6 @@ pipeline {
                 }
             }
         }
-
 
 
 
