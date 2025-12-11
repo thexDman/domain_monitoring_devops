@@ -110,36 +110,49 @@ pipeline {
         stage('Compute Next Semantic Version') {
             steps {
                 script {
-                    sh 'git fetch --tags'
+                    echo "Fetching existing tags from Docker Hub..."
 
-                    def CURRENT_VERSION = sh(
-                        script: "git tag --sort=-v:refname | grep -Eo 'v[0-9]+\\.[0-9]+\\.[0-9]+' | head -n 1",
+                    def tagsJson = sh(
+                        script: """
+                            curl -s "https://hub.docker.com/v2/repositories/${DOCKERHUB_USR}/${IMAGE_NAME}/tags?page_size=100"
+                        """,
                         returnStdout: true
-                    ).trim()
+                    )
 
-                    echo "Current highest semantic version: ${CURRENT_VERSION}"
+                    def parsed = new groovy.json.JsonSlurper().parseText(tagsJson)
+
+                    def semverTags = parsed.results
+                        .collect { it.name }
+                        .findAll { it ==~ /v[0-9]+\\.[0-9]+\\.[0-9]+/ }
+
+                    echo "Found semantic tags: ${semverTags}"
 
                     String NEXT_VERSION
 
-                    if (!CURRENT_VERSION) {
-                        // First-ever release
+                    if (!semverTags || semverTags.isEmpty()) {
                         NEXT_VERSION = "v1.0.0"
                     } else {
-                        def parts = CURRENT_VERSION.replace("v", "").split("\\.")
-                        def major = parts[0] as int
-                        def minor = parts[1] as int
-                        def patch = parts[2] as int
+                        semverTags = semverTags.sort { a, b ->
+                            def av = a.replace("v","").split("\\.")*.toInteger()
+                            def bv = b.replace("v","").split("\\.")*.toInteger()
+                            return av <=> bv
+                        }
 
-                        patch += 1
+                        def latest = semverTags.last()
+                        echo "Latest version on Docker Hub: ${latest}"
 
-                        NEXT_VERSION = "v${major}.${minor}.${patch}"
+                        def parts = latest.replace("v","").split("\\.")*.toInteger()
+                        parts[2] = parts[2] + 1
+
+                        NEXT_VERSION = "v${parts[0]}.${parts[1]}.${parts[2]}"
                     }
 
                     env.SEMVER_TAG = NEXT_VERSION
-                    echo "Next semantic version: ${env.SEMVER_TAG}"
+                    echo "Computed next semantic version: ${env.SEMVER_TAG}"
                 }
             }
         }
+
 
 
         stage('Promote Image & Push to Docker Hub') {
@@ -151,9 +164,11 @@ pipeline {
 
                         docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
+                        docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:${SEMVER_TAG}
 
                         docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
+                        docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:${SEMVER_TAG}
 
                         docker logout
                     """
