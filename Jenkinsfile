@@ -108,36 +108,39 @@ pipeline {
         }
 
         stage('Compute Next Semantic Version') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 script {
-                    // Make sure we see all existing tags
-                    sh 'git fetch --tags || true'
+                    sh 'git fetch --tags'
 
-                    def currentVersion = sh(
-                        script: """
-                            git tag --sort=-v:refname \\
-                              | grep -Eo 'v[0-9]+\\.[0-9]+\\.[0-9]+' \\
-                              | head -n 1 \\
-                              || echo 'v0.0.0'
-                        """,
+                    def CURRENT_VERSION = sh(
+                        script: "git tag --sort=-v:refname | grep -Eo 'v[0-9]+\\.[0-9]+\\.[0-9]+' | head -n 1",
                         returnStdout: true
                     ).trim()
 
-                    echo "Current highest semantic version: ${currentVersion}"
+                    echo "Current highest semantic version: ${CURRENT_VERSION}"
 
-                    def parts = currentVersion.replace('v', '').tokenize('.')
-                    def major = parts[0] as int
-                    def minor = parts[1] as int
-                    def patch = parts[2] as int
+                    String NEXT_VERSION
 
-                    patch = patch + 1
+                    if (!CURRENT_VERSION) {
+                        // First-ever release
+                        NEXT_VERSION = "v1.0.0"
+                    } else {
+                        def parts = CURRENT_VERSION.replace("v", "").split("\\.")
+                        def major = parts[0] as int
+                        def minor = parts[1] as int
+                        def patch = parts[2] as int
 
-                    env.SEMVER_TAG = "v${major}.${minor}.${patch}"
-                    echo "Next semantic version will be: ${env.SEMVER_TAG}"
+                        patch += 1
+
+                        NEXT_VERSION = "v${major}.${minor}.${patch}"
+                    }
+
+                    env.SEMVER_TAG = NEXT_VERSION
+                    echo "Next semantic version: ${env.SEMVER_TAG}"
                 }
             }
         }
+
 
         stage('Promote Image & Push to Docker Hub + Tag Git') {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
