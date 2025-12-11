@@ -5,25 +5,28 @@ pipeline {
         ansiColor('xterm')
         timestamps()
     }
-    
+
     environment {
-        REGISTRY = "thexDman"
-        IMAGE_NAME = "domain_monitoring_devops"
-        APP_PORT = "8080"
+        REGISTRY       = "thexDman"                  // local/CI registry namespace
+        IMAGE_NAME     = "domain_monitoring_devops" // repo/image name
+        APP_PORT       = "8080"
         CONTAINER_NAME = "DMS-TEMP-${BUILD_NUMBER}"
-        DOCKERHUB = credentials('dockerhub-creds')
-        GITHUB = credentials('github-token')
+
+        // Jenkins credentials IDs created by JCasC:
+        DOCKERHUB = credentials('dockerhub-creds')  // gives DOCKERHUB_USR / DOCKERHUB_PSW
+        GITHUB    = credentials('github-token')     // gives GITHUB_USR / GITHUB_PSW
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scm
                 sh '''
-                    echo "---Git INFO---"
+                    echo "--- Git INFO ---"
                     echo "Branch: $GIT_BRANCH"
                     echo "Commit: $GIT_COMMIT"
-                ''' 
+                '''
             }
         }
 
@@ -33,11 +36,11 @@ pipeline {
                     echo "HOSTNAME: $(hostname)"
                     echo "USER: $(whoami)"
                     echo "WORKSPACE: $WORKSPACE"
-                ''' 
+                '''
             }
         }
 
-        stage('Compute Image Tag') {
+        stage('Compute CI Image Tag') {
             steps {
                 script {
                     env.SHORT_COMMIT = sh(
@@ -46,7 +49,7 @@ pipeline {
                     ).trim()
 
                     env.IMAGE_TAG = "build-${BUILD_NUMBER}-${env.SHORT_COMMIT}"
-                    echo "Docker image tag: ${env.IMAGE_TAG}"
+                    echo "CI Docker image tag: ${env.IMAGE_TAG}"
                 }
             }
         }
@@ -78,7 +81,7 @@ pipeline {
                     curl -sS http://localhost:${APP_PORT} || echo "App not responding yet, tests may fail."
                 """
             }
-        }        
+        }
 
         stage('Execute Tests inside Container') {
             parallel {
@@ -104,41 +107,90 @@ pipeline {
             }
         }
 
-        stage('Push Docker Image') {
+        stage('Compute Next Semantic Version') {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
-                sh """
-                    echo "Logging into Docker Hub as ${DOCKERHUB_USR}"
-                    echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
+                script {
+                    // Make sure we see all existing tags
+                    sh 'git fetch --tags || true'
 
-                    echo "Tagging image for Docker Hub..."
-                    docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:${IMAGE_TAG}
-                    docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
+                    def currentVersion = sh(
+                        script: """
+                            git tag --sort=-v:refname \\
+                              | grep -Eo 'v[0-9]+\\.[0-9]+\\.[0-9]+' \\
+                              | head -n 1 \\
+                              || echo 'v0.0.0'
+                        """,
+                        returnStdout: true
+                    ).trim()
 
-                    echo "Pushing images..."
-                    docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:${IMAGE_TAG}
-                    docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
+                    echo "Current highest semantic version: ${currentVersion}"
 
-                    docker logout
-                """
+                    def parts = currentVersion.replace('v', '').tokenize('.')
+                    def major = parts[0] as int
+                    def minor = parts[1] as int
+                    def patch = parts[2] as int
+
+                    patch = patch + 1
+
+                    env.SEMVER_TAG = "v${major}.${minor}.${patch}"
+                    echo "Next semantic version will be: ${env.SEMVER_TAG}"
+                }
             }
         }
-    }
+
+        stage('Promote Image & Push to Docker Hub + Tag Git') {
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
+            steps {
+                script {
+                    // 1) Promote CI image to semantic + latest on Docker Hub
+                    sh """
+                        echo "Logging into Docker Hub as ${DOCKERHUB_USR}"
+                        echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
+
+                        echo "Promoting CI image:"
+                        echo "  from: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+                        echo "  to:   ${DOCKERHUB_USR}/${IMAGE_NAME}:${SEMVER_TAG} and :latest"
+
+                        docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:${SEMVER_TAG}
+                        docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
+
+                        docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:${SEMVER_TAG}
+                        docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
+
+                        docker logout
+                    """
+
+                    // 2) Git tag for version bookkeeping (so next build knows what to bump from)
+                    sh """
+                        git config --global user.email "jenkins@ci.local"
+                        git config --global user.name "Jenkins CI"
+
+                        echo "Creating git tag: ${SEMVER_TAG}"
+                        git tag -a ${SEMVER_TAG} -m "Release ${SEMVER_TAG}"
+
+                        echo "Pushing git tag to GitHub..."
+                        git push https://${GITHUB_USR}:${GITHUB_PSW}@github.com/thexDman/domain_monitoring_devops.git ${SEMVER_TAG}
+                    """
+                }
+            }
+        }
+
+    } // stages
+
     post {
         failure {
             echo "Tests FAILED — dumping container logs..."
-            sh """
-                docker logs ${CONTAINER_NAME} || true
-            """
+            sh "docker logs ${CONTAINER_NAME} || true"
         }
 
         always {
             echo "Cleaning temp containers & images..."
             sh """
                 docker rm -f ${CONTAINER_NAME} || true
-                # optional, if you don't want aggressive prune, comment this out:
+                # If you want more aggressive cleanup, uncomment:
                 # docker system prune -af --volumes || true
             """
-        }    
+        }
     }
 }
