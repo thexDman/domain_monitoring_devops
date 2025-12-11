@@ -137,3 +137,30 @@
     groups: docker
     append: yes 
 
+- name: Ensure Docker.sock is accessible by docker group
+  ansible.builtin.file:
+    path: /var/run/docker.sock
+    group: docker
+    mode: '0660'
+  ignore_errors: true  
+
+- name: Ensure /home/jenkins workspace directory exists
+  ansible.builtin.file:
+    path: /home/jenkins
+    state: directory
+    owner: ubuntu
+    group: ubuntu
+    mode: "0755"
+
+- name: Ensure Jenkins workspace files are owned by ubuntu
+  ansible.builtin.file:
+    path: /home/jenkins
+    state: directory
+    recurse: yes
+    owner: ubuntu
+    group: ubuntu
+
+- name: Reboot system so new docker group applies
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+

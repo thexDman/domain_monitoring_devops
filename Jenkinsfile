@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'Slave docker' }
+    agent { label 'docker' }
 
     options {
         ansiColor('xterm')

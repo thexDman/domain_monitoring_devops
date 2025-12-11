@@ -10,7 +10,7 @@ jenkins:
         name: "docker-slave-1" 
         remoteFS: "/home/jenkins"
         numExecutors: 2
-        labelString: "Slave docker"
+        labelString: "docker"
         mode: NORMAL
         launcher:
           inbound:
