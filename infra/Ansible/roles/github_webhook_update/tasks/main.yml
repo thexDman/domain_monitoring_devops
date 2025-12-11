@@ -1,0 +1,51 @@
+---
+- name: Fail if required variables are missing
+  assert:
+    that:
+      - GITHUB_USER is defined
+      - GITHUB_TOKEN is defined
+      - jenkins_url is defined
+    fail_msg: "Missing required variables (GITHUB_USER, GITHUB_TOKEN, jenkins_url)"
+
+- name: Get existing GitHub webhooks
+  uri:
+    url: "https://api.github.com/repos/{{ GITHUB_USER }}/domain_monitoring_devops/hooks"
+    method: GET
+    headers:
+      Authorization: "token {{ GITHUB_TOKEN }}"
+      Accept: "application/vnd.github+json"
+    return_content: yes
+  register: existing_hooks
+  failed_when: false
+
+- name: Extract list of webhook URLs
+  set_fact:
+    current_hook_urls: '{{ (existing_hooks.json | default([])) | map(attribute="config.url") | list }}'
+
+- name: Debug: Print current webhook URLs
+  debug:
+    msg: "Existing GitHub webhook URLs: {{ current_hook_urls }}"
+
+- name: Create or update GitHub webhook
+  when: jenkins_url not in current_hook_urls
+  uri:
+    url: "https://api.github.com/repos/{{ GITHUB_USER }}/domain_monitoring_devops/hooks"
+    method: POST
+    headers:
+      Authorization: "token {{ GITHUB_TOKEN }}"
+      Accept: "application/vnd.github+json"
+    body_format: json
+    body:
+      name: web
+      active: true
+      events:
+        - push
+      config:
+        url: "{{ jenkins_url }}/github-webhook/"
+        content_type: "json"
+  register: create_hook_response
+
+- name: Debug: Webhook creation response
+  debug:
+    var: create_hook_response
+  when: jenkins_url not in current_hook_urls
