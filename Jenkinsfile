@@ -142,38 +142,20 @@ pipeline {
         }
 
 
-        stage('Promote Image & Push to Docker Hub + Tag Git') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
+        stage('Promote Image & Push to Docker Hub') {
             steps {
                 script {
-                    // 1) Promote CI image to semantic + latest on Docker Hub
                     sh """
-                        echo "Logging into Docker Hub as ${DOCKERHUB_USR}"
+                        echo "Pushing Docker image: ${IMAGE_TAG}"
                         echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
 
-                        echo "Promoting CI image:"
-                        echo "  from: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
-                        echo "  to:   ${DOCKERHUB_USR}/${IMAGE_NAME}:${SEMVER_TAG} and :latest"
-
-                        docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:${SEMVER_TAG}
+                        docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker tag ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
 
-                        docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:${SEMVER_TAG}
+                        docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:${IMAGE_TAG}
                         docker push ${DOCKERHUB_USR}/${IMAGE_NAME}:latest
 
                         docker logout
-                    """
-
-                    // 2) Git tag for version bookkeeping (so next build knows what to bump from)
-                    sh """
-                        git config --global user.email "jenkins@ci.local"
-                        git config --global user.name "Jenkins CI"
-
-                        echo "Creating git tag: ${SEMVER_TAG}"
-                        git tag -a ${SEMVER_TAG} -m "Release ${SEMVER_TAG}"
-
-                        echo "Pushing git tag to GitHub..."
-                        git push https://${GITHUB_USR}:${GITHUB_PSW}@github.com/thexDman/domain_monitoring_devops.git ${SEMVER_TAG}
                     """
                 }
             }
