@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 pipeline {
     agent { label 'docker' }
 
@@ -132,16 +134,17 @@ pipeline {
                     if (!semverTags || semverTags.isEmpty()) {
                         NEXT_VERSION = "v1.0.0"
                     } else {
+                        // Sort properly
                         semverTags = semverTags.sort { a, b ->
-                            def av = a.replace("v","").split("\\.")*.toInteger()
-                            def bv = b.replace("v","").split("\\.")*.toInteger()
+                            def av = a.replace("v","").split("\\.").collect { it as int }
+                            def bv = b.replace("v","").split("\\.").collect { it as int }
                             return av <=> bv
                         }
 
                         def latest = semverTags.last()
                         echo "Latest version on Docker Hub: ${latest}"
 
-                        def parts = latest.replace("v","").split("\\.")*.toInteger()
+                        def parts = latest.replace("v","").split("\\.").collect { it as int }
                         parts[2] = parts[2] + 1
 
                         NEXT_VERSION = "v${parts[0]}.${parts[1]}.${parts[2]}"
@@ -152,6 +155,7 @@ pipeline {
                 }
             }
         }
+
 
 
 
