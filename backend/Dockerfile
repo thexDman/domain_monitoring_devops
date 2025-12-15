@@ -16,16 +16,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # ------------------------
-# Install Chrome
+# Chrome + Chromedriver
 # ------------------------
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && apt-get update \
     && apt-get install -y ./google-chrome-stable_current_amd64.deb \
     && rm google-chrome-stable_current_amd64.deb
 
-# ------------------------
-# Install Chromedriver (matching)
-# ------------------------
 RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1) && \
     LATEST=$(wget -qO- https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_VERSION}) && \
     wget -q https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${LATEST}/linux64/chromedriver-linux64.zip && \
@@ -43,8 +40,11 @@ COPY backend/requirements-test.txt .
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir -r requirements-test.txt
 
-COPY . .
+# ------------------------
+# App + tests
+# ------------------------
+COPY backend /app/backend
 COPY tests /app/tests
 
 EXPOSE 8080
-CMD ["gunicorn", "-b", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "-b", "0.0.0.0:8080", "backend.app:app"]
