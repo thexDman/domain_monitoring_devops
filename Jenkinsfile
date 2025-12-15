@@ -56,6 +56,24 @@ pipeline {
                 """
             }
         }
+        
+        stage('Backend Sanity Checks') {
+            steps {
+                sh '''
+                echo "==== Docker PS ===="
+                docker ps -a
+
+                echo "==== Backend logs ===="
+                docker-compose -f docker-compose.ci.yml logs backend || true
+
+                echo "==== Inspect backend container ===="
+                docker inspect domain-monitoring-ci-backend-1 || true
+
+                echo "==== Try running backend manually ===="
+                docker-compose -f docker-compose.ci.yml run --rm backend python -c "import backend.app; print('IMPORT OK')" || true
+                '''
+            }
+        }
 
         stage('Wait for Backend Health') {
             steps {
