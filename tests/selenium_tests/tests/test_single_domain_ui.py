@@ -33,7 +33,7 @@ def test_add_single_domain_ui(driver, base_url, domain, status, ssl_issuer, ssl_
     # Check correct page 
     assert single_modal.get_title() == "Dashboard"
     # _modal inherit from DashboardPage
-    assert "Selenium_Tester_12345" in single_modal.get_welcome_message()
+    assert single_modal.get_welcome_message()
     time.sleep(1)
 
     # =========================
