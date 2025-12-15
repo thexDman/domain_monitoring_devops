@@ -78,21 +78,25 @@ pipeline {
         stage('Run API Tests') {
             steps {
                 sh """
-                    docker-compose -f docker-compose.ci.yml exec backend \
+                docker-compose -f docker-compose.ci.yml exec \
+                    -e BASE_URL=http://localhost:8080 \
+                    backend \
                     pytest tests/api_tests --maxfail=1 --disable-warnings -q
                 """
             }
         }
 
-
         stage('Run Selenium UI Tests') {
             steps {
                 sh """
-                    docker-compose -f docker-compose.ci.yml exec backend \
+                docker-compose -f docker-compose.ci.yml exec \
+                    -e BASE_URL=http://frontend \
+                    backend \
                     pytest tests/selenium_tests --maxfail=1 --disable-warnings -q
                 """
             }
         }
+
 
 
         stage('Push Images (latest only)') {
