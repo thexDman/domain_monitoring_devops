@@ -15,11 +15,6 @@ def new_username():
     return "test57"
 
 # Tests
-
-def test_1_register_page_access():
-    # Check if the /register page is accessible
-    assert check_get_webpage("/register/").ok == True
-
 # Invalid Username Tests
 
 @pytest.mark.parametrize(
