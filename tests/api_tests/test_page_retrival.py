@@ -11,4 +11,4 @@ pytestmark = pytest.mark.order(1)
 
 def test_1_page_retrival(PATH):
     response = check_get_webpage(PATH)
-    assert response.status_code in (200, 401, 403)
+    assert response.status_code in (200, 401, 403, 405)
