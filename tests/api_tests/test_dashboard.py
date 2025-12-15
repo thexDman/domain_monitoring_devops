@@ -6,7 +6,8 @@ from tests.api_tests.Aux_Library import (
     check_register_user,
     check_login_user,
 )
-from domain_monitoring_devops.backend.app import app
+from backend.app import app
+
 
 pytestmark = pytest.mark.order(4)
 
