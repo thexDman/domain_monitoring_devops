@@ -3,6 +3,8 @@ version: "3.9"
 services:
   backend:
     image: domain-monitoring-be:ci
+    volumes:
+      - backend-data:/app/UsersData
     ports:
       - "8080:8080"
 
