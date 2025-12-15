@@ -76,18 +76,22 @@ pipeline {
         stage('Run API Tests') {
             steps {
                 sh """
-                  pytest tests/api_tests
+                    docker-compose -f docker-compose.ci.yml exec backend \
+                    pytest tests/api_tests --maxfail=1 --disable-warnings -q
                 """
             }
         }
 
+
         stage('Run Selenium UI Tests') {
             steps {
                 sh """
-                  pytest tests/selenium_tests
+                    docker-compose -f docker-compose.ci.yml exec backend \
+                    pytest tests/selenium_tests --maxfail=1 --disable-warnings -q
                 """
             }
         }
+
 
         stage('Push Images (latest only)') {
             steps {
