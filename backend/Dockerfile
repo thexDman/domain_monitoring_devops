@@ -37,8 +37,8 @@ RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d. -f1) &
 # ------------------------
 # Python deps
 # ------------------------
-COPY requirements.txt .
-COPY requirements-test.txt .
+COPY backend/requirements.txt .
+COPY backend/requirements-test.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir -r requirements-test.txt
