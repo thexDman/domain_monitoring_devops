@@ -56,7 +56,7 @@ pipeline {
                 """
             }
         }
-        
+
         stage('Backend Sanity Checks') {
             steps {
                 sh '''
@@ -115,24 +115,75 @@ pipeline {
             }
         }
 
+        stage('Compute Semantic Version') {
+            steps {
+                script {
+                    echo "Fetching existing tags from Docker Hub..."
+
+                    def image = "${DOCKERHUB_USR}/${BE_IMAGE}"
+
+                    def tagsJson = sh(
+                        script: "curl -s https://hub.docker.com/v2/repositories/${image}/tags?page_size=100",
+                        returnStdout: true
+                    )
+
+                    def parsed = new groovy.json.JsonSlurper().parseText(tagsJson)
+
+                    def semverTags = parsed.results
+                        .collect { it.name }
+                        .findAll { it ==~ /v\\d+\\.\\d+\\.\\d+/ }
+
+                    echo "Found semantic tags: ${semverTags}"
+
+                    String nextVersion
+
+                    if (!semverTags || semverTags.isEmpty()) {
+                        nextVersion = "v1.0.0"
+                    } else {
+                        semverTags.sort { a, b ->
+                            def av = a.replace("v","").split("\\.").collect { it.toInteger() }
+                            def bv = b.replace("v","").split("\\.").collect { it.toInteger() }
+                            av <=> bv
+                        }
+
+                        def latest = semverTags.last()
+                        def parts = latest.replace("v","").split("\\.").collect { it.toInteger() }
+                        parts[2] = parts[2] + 1
+
+                        nextVersion = "v${parts[0]}.${parts[1]}.${parts[2]}"
+                    }
+
+                    env.SEMVER_TAG = nextVersion
+                    echo "Next semantic version: ${env.SEMVER_TAG}"
+                }
+            }
+        }
 
 
-        stage('Push Images (latest only)') {
+        stage('Push Images (latest + semantic)') {
             steps {
                 sh """
-                  echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
+                echo ${DOCKERHUB_PSW} | docker login -u ${DOCKERHUB_USR} --password-stdin
 
-                  docker tag ${BE_IMAGE}:ci ${DOCKERHUB_USR}/${BE_IMAGE}:latest
-                  docker tag ${FE_IMAGE}:ci ${DOCKERHUB_USR}/${FE_IMAGE}:latest
+                # Backend
+                docker tag ${BE_IMAGE}:ci ${DOCKERHUB_USR}/${BE_IMAGE}:latest
+                docker tag ${BE_IMAGE}:ci ${DOCKERHUB_USR}/${BE_IMAGE}:${SEMVER_TAG}
 
-                  docker push ${DOCKERHUB_USR}/${BE_IMAGE}:latest
-                  docker push ${DOCKERHUB_USR}/${FE_IMAGE}:latest
+                docker push ${DOCKERHUB_USR}/${BE_IMAGE}:latest
+                docker push ${DOCKERHUB_USR}/${BE_IMAGE}:${SEMVER_TAG}
 
-                  docker logout
+                # Frontend
+                docker tag ${FE_IMAGE}:ci ${DOCKERHUB_USR}/${FE_IMAGE}:latest
+                docker tag ${FE_IMAGE}:ci ${DOCKERHUB_USR}/${FE_IMAGE}:${SEMVER_TAG}
+
+                docker push ${DOCKERHUB_USR}/${FE_IMAGE}:latest
+                docker push ${DOCKERHUB_USR}/${FE_IMAGE}:${SEMVER_TAG}
+
+                docker logout
                 """
             }
         }
-    }
+
 
     post {
         always {
