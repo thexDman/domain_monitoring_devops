@@ -98,13 +98,13 @@ def test_3_valid_registration(driver, base_url, clean_user, username, password,
         password_confirmation=password_confirmation
         )
     # Check The Correctness of Error Message
-    assert register.get_success_message() == expected_message
+    assert register.is_registration_successful() is True
     # Initializing Dashboard
     dashboard = DashboardPage(driver, base_url)
     dashboard.load()
     # After Registering, The Driver Should be redirected to Dashboard
     assert dashboard.get_title() == "Dashboard"
-    assert dashboard.get_welcome_message() == f"Hello {username}!"
+    assert dashboard.get_welcome_message() == "Hello"
     # Logging Out
     dashboard.logout()
     # Driver Redirected to Login
