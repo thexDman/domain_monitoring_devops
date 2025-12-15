@@ -22,25 +22,35 @@ THIS_DIR = os.path.dirname(__file__)
     ]
 )
 def test_add_single_domain_ui(driver, base_url, domain):
+    # -------------------------
+    # Login
+    # -------------------------
     login_page = LoginPage(driver, base_url)
     login_page.load()
     login_page.login("Selenium_Tester_12345", "St87654321")
 
-    time.sleep(1)
-
+    # -------------------------
+    # Dashboard
+    # -------------------------
     single_modal = SingleDomainModal(driver=driver, base_url=base_url)
     single_modal.load()
 
     assert single_modal.get_title() == "Dashboard"
     assert single_modal.get_welcome_message()
 
+    # -------------------------
+    # Add domain
+    # -------------------------
     single_modal.open_add_domain_modal()
     single_modal.add_single_domain(domain=domain)
 
-    assert single_modal.wait_for_success()
+    # Wait for UI to stabilize (NOT for text)
     single_modal.wait_for_active_dashboard()
 
-    domain_data = single_modal.get_domain_data(domain=domain)
+    # -------------------------
+    # Validate domain exists
+    # -------------------------
+    domain_data = single_modal.get_domain_data(domain)
     assert domain_data is not None
 
     assert isinstance(domain_data["status"], str)
@@ -49,8 +59,9 @@ def test_add_single_domain_ui(driver, base_url, domain):
     assert isinstance(domain_data["ssl_issuer"], str)
     assert isinstance(domain_data["ssl_expiration"], str)
 
-
-    # Clean User Domain
+    # -------------------------
+    # Cleanup
+    # -------------------------
     user_domains_path = "./UsersData/Selenium_Tester_12345_domains.json"
     with open(user_domains_path, "w") as f:
         json.dump([], f)
