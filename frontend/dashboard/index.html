@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="/dashboard/dashboard.css">
+  <script type="module" src="/dashboard/dashboard.js" defer></script>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-title">Domain Monitoring System</div>
+  <a href="#" class="header-button" id="logoutBtn">Logout</a>
+</header>
+
+<div id="greeting">Hello</div>
+
+<div class="action-buttons">
+  <button id="openAddDomain" class="dashboard-button">Add Domain</button>
+  <button id="openBulkUpload" class="dashboard-button">Bulk Add Domains</button>
+  <button id="scanNowBtn" class="dashboard-button scan">Scan Now</button>
+</div>
+
+<main class="dashboard-content">
+  <div class="bulk-actions">
+    <button id="bulkDeleteBtn" class="bulk-delete-btn">Delete Selected</button>
+    <button id="deleteAllBtn" class="bulk-delete-btn">Delete All</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th><input type="checkbox" id="selectAll"></th>
+        <th>Domain</th>
+        <th>Status</th>
+        <th>SSL Expiration</th>
+        <th>SSL Issuer</th>
+        <th>Delete</th>
+      </tr>
+    </thead>
+    <tbody id="domainsTableBody">
+      <tr>
+        <td colspan="6" class="empty-row">Loading domains…</td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+
+  <!-- MODALS -->
+  <div id="addDomainModal" class="modal">
+    <div class="modal-content">
+      <span class="close" data-close="addDomainModal">&times;</span>
+      <h2>Add Domain</h2>
+      <form id="addDomainForm" method="POST">
+        <input type="text" name="domain" id="domainInput" placeholder="Enter domain" required>
+        <button type="submit" class="dashboard-button">Add</button>
+      </form>
+      <p id="addDomainStatus"></p>
+    </div>
+  </div>
+
+  <div id="bulkUploadModal" class="modal">
+    <div class="modal-content">
+      <span class="close" data-close="bulkUploadModal">&times;</span>
+      <h2>Bulk Upload Domains</h2>
+      <form id="bulkUploadForm" method="POST" enctype="multipart/form-data">
+        <input type="file" name="file" accept=".txt" required>
+        <button type="submit" class="dashboard-button">Upload</button>
+      </form>
+      <p id="bulkUploadStatus"></p>
+    </div>
+  </div>
+    <div id="deleteDomainModal" class="modal">
+    <div class="modal-content">
+        <span class="close" data-close="deleteDomainModal">&times;</span>
+        <h2>Confirm Delete</h2>
+        <p id="deleteDomainText"></p>
+        <div class="modal-actions">
+        <button id="confirmDeleteBtn" class="bulk-delete-btn">Delete</button>
+        </div>
+    </div>
+    </div>
+    <!-- FOOTER -->
+    <footer class="footer">
+        <p>&copy; 2025 Domain Monitoring System - Group 2</p>
+    </footer>
+</body>
+</html>

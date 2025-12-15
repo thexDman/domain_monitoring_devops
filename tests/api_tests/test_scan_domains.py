@@ -5,7 +5,7 @@ import pytest
 import uuid
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-from app import app
+from domain_monitoring_devops.backend.app import app
 
 pytestmark = pytest.mark.order(6)
 

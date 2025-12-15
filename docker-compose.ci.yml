@@ -1,0 +1,16 @@
+version: "3.9"
+
+services:
+  backend:
+    image: domain-monitoring-be:ci
+    container_name: dms-backend
+    ports:
+      - "8080:8080"
+
+  frontend:
+    image: domain-monitoring-fe:ci
+    container_name: dms-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
