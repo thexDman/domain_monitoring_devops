@@ -61,7 +61,7 @@ def test_add_and_remove_domain(auth_headers):
     )
     assert list_resp.status_code == 200
     domains = list_resp.json().get("domains", [])
-    assert domain in domains
+    assert any(d["domain"] == domain for d in domains)
 
     # Remove domain
     remove_resp = requests.delete(
@@ -77,7 +77,8 @@ def test_add_and_remove_domain(auth_headers):
         f"{base}/api/domains",
         headers=auth_headers,
     )
-    assert domain not in verify.json().get("domains", [])
+    remaining = verify.json().get("domains", [])
+    assert not any(d["domain"] == domain for d in remaining)
 
 
 # -------------------------------------------------
@@ -129,7 +130,7 @@ def test_bulk_remove_domains(auth_headers):
     ).json().get("domains", [])
 
     for d in domains:
-        assert d not in remaining
+        assert not any(dom["domain"] == d for dom in remaining)
 
 
 def test_remove_domains_empty_payload(auth_headers):
