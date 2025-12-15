@@ -46,4 +46,4 @@ def driver():
 
 @pytest.fixture
 def base_url():
-    return os.getenv("BASE_URL", "http://localhost:8080")
+    return os.getenv("BASE_URL", "http://frontend:80")

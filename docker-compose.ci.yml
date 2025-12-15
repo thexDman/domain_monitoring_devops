@@ -6,6 +6,8 @@ services:
     container_name: dms-backend
     ports:
       - "8080:8080"
+    environment:
+      BASE_URL: http://frontend:80
 
   frontend:
     image: domain-monitoring-fe:ci
