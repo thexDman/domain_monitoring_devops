@@ -49,8 +49,8 @@ pipeline {
         stage('Start Environment (docker-compose)') {
             steps {
                 sh """
-                  docker compose -f ${COMPOSE_FILE} down -v || true
-                  docker compose -f ${COMPOSE_FILE} up -d
+                  docker-compose -f ${COMPOSE_FILE} down -v || true
+                  docker-compose -f ${COMPOSE_FILE} up -d
                 """
             }
         }
@@ -105,7 +105,7 @@ pipeline {
     post {
         always {
             sh """
-              docker compose -f ${COMPOSE_FILE} down -v || true
+              docker-compose -f ${COMPOSE_FILE} down -v || true
             """
         }
 
