@@ -44,11 +44,11 @@ def test_add_single_domain_ui(driver, base_url, domain):
     single_modal.open_add_domain_modal()
     single_modal.add_single_domain(domain=domain)
 
-    # Wait for UI to stabilize (NOT for text)
-    single_modal.wait_for_active_dashboard()
+    # 🔑 wait for async row
+    single_modal.wait_for_domain_row(domain)
 
     # -------------------------
-    # Validate domain exists
+    # Validate domain row
     # -------------------------
     domain_data = single_modal.get_domain_data(domain)
     assert domain_data is not None
