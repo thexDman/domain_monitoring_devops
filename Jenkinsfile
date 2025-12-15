@@ -57,15 +57,19 @@ pipeline {
 
         stage('Wait for Backend Health') {
             steps {
-                sh """
-                  echo "Waiting for backend health..."
-                  for i in {1..30}; do
-                    curl -sf http://localhost:8080/api/health && exit 0
+                sh '''
+                    echo "Waiting for backend health..."
+                    for i in {1..10}; do
+                    if docker-compose -f docker-compose.ci.yml exec backend \
+                        curl -sf http://localhost:8080/api/health; then
+                        echo "Backend is healthy"
+                        exit 0
+                    fi
                     sleep 2
-                  done
-                  echo "Backend did not become healthy"
-                  exit 1
-                """
+                    done
+                    echo "Backend did not become healthy"
+                    exit 1
+                '''
             }
         }
 
