@@ -27,11 +27,11 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 def cleanup_domains():
     """
     Collect domains added during test
-    and remove them via API using a real token.
+    and remove them via API.
     """
     domains = []
 
-    def _register(domain: str):
+    def _register(domain):
         domains.append(domain)
 
     yield _register
@@ -39,7 +39,6 @@ def cleanup_domains():
     if not domains:
         return
 
-    # Login via API to get token
     login = check_login_user(TEST_USERNAME, TEST_PASSWORD)
     token = login.json().get("token")
 
@@ -56,10 +55,12 @@ def test_bulk_upload_ui(driver, base_url, cleanup_domains):
     login_page.login(TEST_USERNAME, TEST_PASSWORD)
 
     # -------------------------------------------------
-    # Dashboard
+    # Dashboard (NO load here!)
     # -------------------------------------------------
     bulk_modal = BulkUploadModal(driver=driver, base_url=base_url)
-    bulk_modal.load()
+
+    # Wait until dashboard is really loaded
+    bulk_modal.wait_for_active_dashboard()
 
     assert bulk_modal.get_title() == "Dashboard"
     assert bulk_modal.get_welcome_message()
