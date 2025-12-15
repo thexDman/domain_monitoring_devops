@@ -5,6 +5,7 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 
+
 @pytest.fixture()
 def driver():
     chrome_options = Options()
@@ -31,13 +32,11 @@ def driver():
     chrome_options.add_argument("--disable-infobars")
     chrome_options.add_argument("--disable-extensions")
 
-    # -------- FIX: auto-detect chromedriver ----------
     driver_path = shutil.which("chromedriver")
     if not driver_path:
         raise RuntimeError("chromedriver not found in PATH")
 
     service = Service(driver_path)
-
     driver = webdriver.Chrome(service=service, options=chrome_options)
 
     yield driver
@@ -46,4 +45,4 @@ def driver():
 
 @pytest.fixture
 def base_url():
-    return os.getenv("BASE_URL", "http://frontend:80")
+    return os.getenv("BASE_URL", "http://backend:8080")
