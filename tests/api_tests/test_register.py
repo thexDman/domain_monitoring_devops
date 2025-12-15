@@ -1,6 +1,6 @@
 from .Aux_Library import check_get_webpage, check_register_user, remove_user_from_running_app as remove_user
 import pytest
-from UserManagementModule import UserManager as UM
+from backend.UserManagementModule import UserManager as UM
 
 pytestmark = pytest.mark.order(2)
 
@@ -18,7 +18,7 @@ def new_username():
 
 def test_1_register_page_access():
     # Check if the /register page is accessible
-    assert check_get_webpage("/register").ok == True
+    assert check_get_webpage("/register/").ok == True
 
 # Invalid Username Tests
 

@@ -2,7 +2,7 @@ import os
 import requests
 import re
 import json
-from UserManagementModule import UserManager as UM
+from backend.UserManagementModule import UserManager as UM
 
 # -----------------------------------------------------
 # Global session and Base URL configuration
