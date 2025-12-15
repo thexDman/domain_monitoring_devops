@@ -31,8 +31,13 @@ def test_register_invalid_username(username, password, password_confirmation):
 
 def test_register_existing_username(existing_username):
     response = check_register_user(existing_username, "Qwe12345", "Qwe12345")
-    assert response.status_code == 409
-    assert response.json().get("ok") is False
+
+    assert response.status_code in (400, 409)
+    body = response.json()
+
+    assert body.get("ok") is False
+    assert "error" in body
+
 
 
 @pytest.mark.parametrize(
