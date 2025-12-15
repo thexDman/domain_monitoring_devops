@@ -19,6 +19,7 @@ class DashboardPage(BasePage):
     
     def wait_for_active_dashboard(self):
         self.wait.until(EC.element_to_be_clickable(self.add_domain_button))
+        
 
     def logout(self):
         time.sleep(0.5)

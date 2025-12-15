@@ -90,7 +90,8 @@ def test_bulk_upload_ui(driver, base_url, cleanup_domains):
     # -------------------------------------------------
     # Wait for dashboard refresh
     # -------------------------------------------------
-    bulk_modal.wait_for_active_dashboard()
+    assert bulk_modal.wait_for_domains(domains), \
+        "Not all uploaded domains appeared in dashboard"
 
     # -------------------------------------------------
     # Validate domain rows (structure only)

@@ -1,6 +1,7 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import time
 
 from tests.selenium_tests.pages.dashboard_page import DashboardPage
 
@@ -19,6 +20,21 @@ class BulkUploadModal(DashboardPage):
     def upload_bulk(self, file_path):
         self.upload_file_enter_path(self.file_input, file_path)
         self.click(self.upload_button)
+        
+    def wait_for_domains(self, domains, timeout=20):
+        """
+        Wait until all given domains appear in the dashboard table.
+        """
+        end_time = time.time() + timeout
+
+        while time.time() < end_time:
+            page = self.driver.page_source.lower()
+            if all(domain.lower() in page for domain in domains):
+                return True
+            time.sleep(0.5)
+
+        return False
+
 
     def _final_message(self):
         element = self.wait.until(
