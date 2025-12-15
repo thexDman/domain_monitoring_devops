@@ -29,12 +29,14 @@ pipeline {
         stage('Build Backend Image') {
             steps {
                 sh """
-                  docker build \
+                docker build \
                     -t ${BE_IMAGE}:ci \
-                    backend
+                    -f backend/Dockerfile \
+                    .
                 """
             }
         }
+
 
         stage('Build Frontend Image') {
             steps {
