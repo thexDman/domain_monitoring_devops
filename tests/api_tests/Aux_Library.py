@@ -8,6 +8,7 @@ from backend.UserManagementModule import UserManager as UM
 # Global session and Base URL configuration
 # -----------------------------------------------------
 BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
+API_PREFIX = "/api"
 session = requests.Session()
 
 
@@ -78,7 +79,7 @@ def check_register_user(username, password, password_confirmation):
         "password": password,
         "password_confirmation": password_confirmation
     }
-    response = post("/register", json=payload)
+    response = post(f"{API_PREFIX}/register", json=payload)
     print_response(response)
     return response
 
@@ -89,7 +90,7 @@ def check_login_user(username, password):
         "username": username,
         "password": password
     }
-    response = post("/login", json=payload)
+    response = post(f"{API_PREFIX}/login", json=payload)
     print_response(response)
     return response
 
@@ -97,7 +98,7 @@ def check_login_user(username, password):
 def check_logout_user(cookie):
     """Logout the current user using their session cookie."""
     headers = {"Cookie": f"session={cookie}"}
-    response = get("/logout", headers=headers)
+    response = get(f"{API_PREFIX}/logout", headers=headers)
     print_response(response)
     return response
 
@@ -105,7 +106,7 @@ def check_logout_user(cookie):
 def check_dashboard(cookie):
     """Access dashboard endpoint with session cookie."""
     headers = {"Cookie": f"session={cookie}"}
-    response = get("/dashboard", headers=headers)
+    response = get(f"{API_PREFIX}/dashboard", headers=headers)
     print_response(response)
     return response
 
@@ -120,7 +121,7 @@ def add_domain(domain, cookie):
         "Cookie": f"session={cookie}"
     }
     payload = {"domain": domain}
-    response = post("/add_domain", json=payload, headers=headers)
+    response = post(f"{API_PREFIX}/add_domain", json=payload, headers=headers)
     print_response(response)
     return response
 
@@ -132,7 +133,7 @@ def remove_domains(domains, cookie):
         "Cookie": f"session={cookie}"
     }
     payload = {"domains": domains}
-    response = post("/remove_domains", json=payload, headers=headers)
+    response = post(f"{API_PREFIX}/remove_domains", json=payload, headers=headers)
     print_response(response)
     return response
 
@@ -140,7 +141,7 @@ def remove_domains(domains, cookie):
 def list_domains(cookie):
     """Get the current user's domain list."""
     headers = {"Cookie": f"session={cookie}"}
-    response = get("/my_domains", headers=headers)
+    response = get(f"{API_PREFIX}/my_domains", headers=headers)
     print_response(response)
     return response
 
@@ -149,7 +150,11 @@ def bulk_upload_domains(file_path, cookie):
     """Upload a .txt file with multiple domains."""
     headers = {"Cookie": f"session={cookie}"}
     with open(file_path, "rb") as f:
-        response = post("/bulk_domains", files={"file": f}, headers=headers)
+        response = post(
+            f"{API_PREFIX}/bulk_domains",
+            files={"file": f},
+            headers=headers
+        )
     print_response(response)
     return response
 
@@ -157,15 +162,13 @@ def bulk_upload_domains(file_path, cookie):
 # -----------------------------------------------------
 # Domain Monitoring
 # -----------------------------------------------------
-
 def check_scan_domains(session_cookie: str | None = None):
     """
     Performs a GET request to /scan_domains.
     If a session_cookie is provided, sends it as a Flask 'session' cookie.
     Returns the response object from the requests library.
     """
-
-    url = f"{BASE_URL}/scan_domains"
+    url = f"{BASE_URL}{API_PREFIX}/scan_domains"
     cookies = {}
 
     if session_cookie:
@@ -180,9 +183,11 @@ def check_scan_domains(session_cookie: str | None = None):
 # -----------------------------------------------------
 def remove_user_from_running_app(username):
     # User Logout
-    get("/logout")
-    # Removing new test user
+    get(f"{API_PREFIX}/logout")
+
+    # Removing test user from storage
     UM().remove_user(username)
-    # Reloading users.json to memory
-    result = get("/reload_users_to_memory")
+
+    # Reload users.json to memory
+    result = get(f"{API_PREFIX}/reload_users_to_memory")
     return result
