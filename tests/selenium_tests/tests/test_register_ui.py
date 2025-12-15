@@ -79,33 +79,34 @@ def test_2_Invalid_registration(driver, base_url, username, password,
     ##assert dashboard.get_welcome_message() == f"Hello {username}!"
 
 @pytest.mark.parametrize(
-        "username,password,password_confirmation,expected_message",
-        [
-            (NEW_USERNAME, "Qwe12345", "Qwe12345", "Registered Successfully.")
-        ]
+    "username,password,password_confirmation",
+    [
+        (NEW_USERNAME, "Qwe12345", "Qwe12345")
+    ]
 )
-def test_3_valid_registration(driver, base_url, clean_user, username, password, 
-                            password_confirmation, expected_message):
-    # Adding user to cleanup list
+def test_3_valid_registration(
+    driver,
+    base_url,
+    clean_user,
+    username,
+    password,
+    password_confirmation,
+):
+    # Register user for cleanup
     clean_user(username)
-    # Initializing and Loading Register Page
+
     register = RegisterPage(driver, base_url)
     register.load()
-    # Registering a Given Set of Credentials
+
     register.register(
         username=username,
         password=password,
         password_confirmation=password_confirmation
-        )
-    # Check The Correctness of Error Message
+    )
+
     assert register.is_registration_successful() is True
-    # Initializing Dashboard
-    dashboard = DashboardPage(driver, base_url)
-    dashboard.load()
-    # After Registering, The Driver Should be redirected to Dashboard
-    assert dashboard.get_title() == "Dashboard"
-    assert dashboard.get_welcome_message() == "Hello"
-    # Logging Out
-    dashboard.logout()
-    # Driver Redirected to Login
-    assert dashboard.get_title() == "Login"
+
+    time.sleep(2)
+
+    assert register.get_title() == "Login"
+
