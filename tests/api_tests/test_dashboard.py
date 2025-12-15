@@ -29,7 +29,9 @@ def test_domains_list_flow():
 
     add_domain(token, domain)
     r2 = list_domains(token)
-    assert domain in r2.json()["domains"]
+    domains = r2.json()["domains"]
+    assert any(d["domain"] == domain for d in domains)
+
 
     remove_domains(token, [domain])
     r3 = list_domains(token)
